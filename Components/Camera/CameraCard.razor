@@ -1,0 +1,164 @@
+@using MyPetMonitor.Models
+@inject IJSRuntime JS
+
+<div class="card h-100">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0">@Camera.Name</h6>
+        <span class="badge @GetStatusBadgeClass()">@Camera.Status</span>
+    </div>
+    
+    <div class="card-body">
+        <div class="camera-info mb-3">
+            <small class="text-muted d-block">
+                <i class="fas fa-network-wired"></i> @Camera.IpAddress:@Camera.Port
+            </small>
+            @if (!string.IsNullOrEmpty(Camera.Manufacturer))
+            {
+                <small class="text-muted d-block">
+                    <i class="fas fa-tag"></i> @Camera.Manufacturer @Camera.Model
+                </small>
+            }
+            <small class="text-muted d-block">
+                <i class="fas fa-clock"></i> Última vez: @Camera.LastSeen.ToString("HH:mm:ss")
+            </small>
+        </div>
+
+        @if (Camera.Status == CameraStatus.Streaming)
+        {
+            <div class="video-container mb-3">
+                <div class="video-placeholder bg-dark d-flex align-items-center justify-content-center text-white">
+                    <div class="text-center">
+                        <i class="fas fa-play-circle fa-3x mb-2"></i>
+                        <div>Video Stream</div>
+                        <small>@Camera.CurrentStreamUrl</small>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="video-container mb-3">
+                <div class="video-placeholder bg-light d-flex align-items-center justify-content-center text-muted">
+                    <div class="text-center">
+                        <i class="fas fa-video-slash fa-2x mb-2"></i>
+                        <div>Sin stream</div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="camera-controls">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <button class="btn @GetStreamButtonClass() btn-sm" 
+                        @onclick="() => OnStreamToggle.InvokeAsync(Camera.Id)"
+                        disabled="@(Camera.Status == CameraStatus.Connecting)">
+                    @if (Camera.Status == CameraStatus.Connecting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    else if (Camera.Status == CameraStatus.Streaming)
+                    {
+                        <i class="fas fa-stop me-1"></i>
+                    }
+                    else
+                    {
+                        <i class="fas fa-play me-1"></i>
+                    }
+                    @GetStreamButtonText()
+                </button>
+                
+                @if (Camera.PTZCapabilities?.HasPTZ == true)
+                {
+                    <button class="btn btn-info btn-sm" @onclick="TogglePTZControls">
+                        <i class="fas fa-arrows-alt me-1"></i>
+                        PTZ
+                    </button>
+                }
+                
+                <button class="btn btn-outline-danger btn-sm" @onclick="() => OnDeleteCamera.InvokeAsync(Camera.Id)">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+
+            @if (showPTZControls && Camera.PTZCapabilities?.HasPTZ == true)
+            {
+                <PTZControls Camera="@Camera" OnCommand="@OnPTZCommand" />
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .video-container {
+        position: relative;
+        width: 100%;
+        padding-bottom: 56.25%; /* 16:9 aspect ratio */
+        height: 0;
+    }
+    
+    .video-placeholder {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border-radius: 0.375rem;
+        border: 1px solid #dee2e6;
+    }
+    
+    .camera-info {
+        font-size: 0.85rem;
+    }
+    
+    .camera-info i {
+        width: 12px;
+        margin-right: 4px;
+    }
+</style>
+
+@code {
+    [Parameter] public Camera Camera { get; set; } = default!;
+    [Parameter] public EventCallback<string> OnStreamToggle { get; set; }
+    [Parameter] public EventCallback<PTZCommand> OnPTZCommand { get; set; }
+    [Parameter] public EventCallback<string> OnDeleteCamera { get; set; }
+    
+    private bool showPTZControls = false;
+
+    private string GetStatusBadgeClass()
+    {
+        return Camera.Status switch
+        {
+            CameraStatus.Online => "bg-success",
+            CameraStatus.Streaming => "bg-primary",
+            CameraStatus.Connecting => "bg-warning text-dark",
+            CameraStatus.Offline => "bg-danger",
+            CameraStatus.Error => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetStreamButtonClass()
+    {
+        return Camera.Status switch
+        {
+            CameraStatus.Streaming => "btn-danger",
+            CameraStatus.Connecting => "btn-warning",
+            _ => "btn-success"
+        };
+    }
+
+    private string GetStreamButtonText()
+    {
+        return Camera.Status switch
+        {
+            CameraStatus.Streaming => "Detener",
+            CameraStatus.Connecting => "Conectando...",
+            _ => "Iniciar"
+        };
+    }
+
+    private void TogglePTZControls()
+    {
+        showPTZControls = !showPTZControls;
+    }
+}

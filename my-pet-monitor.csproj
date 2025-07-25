@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MyPetMonitor</RootNamespace>
+    <AssemblyName>my-pet-monitor</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Streaming and Media -->
+    <PackageReference Include="FFMpegCore" Version="5.0.2" />
+    
+    <!-- Database -->
+    <PackageReference Include="LiteDB" Version="5.0.17" />
+    <PackageReference Include="Mictlanix.DotNet.OnvifClient" Version="0.0.3" />
+    
+    <!-- Logging -->
+    <PackageReference Include="Serilog.AspNetCore" Version="8.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="5.0.1" />
+    <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
+  </ItemGroup>
+
+</Project>

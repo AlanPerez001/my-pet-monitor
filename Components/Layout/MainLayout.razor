@@ -1,0 +1,36 @@
+@inherits LayoutComponentBase
+
+<PageTitle>My Pet Monitor</PageTitle>
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4 d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="mb-0">
+                    <i class="fas fa-paw text-primary"></i>
+                    My Pet Monitor
+                </h5>
+            </div>
+            <div>
+                <span class="text-muted small">
+                    <i class="fas fa-clock"></i>
+                    @DateTime.Now.ToString("HH:mm:ss")
+                </span>
+            </div>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+<div id="blazor-error-ui">
+    Environment: Production
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>

@@ -1,0 +1,154 @@
+@using MyPetMonitor.Models
+
+<div class="card mt-2">
+    <div class="card-body p-3">
+        <h6 class="card-title mb-3">
+            <i class="fas fa-arrows-alt"></i>
+            Control PTZ
+        </h6>
+        
+        <div class="row">
+            <div class="col-8">
+                <div class="ptz-controls">
+                    <div class="ptz-grid">
+                        <button class="btn btn-outline-primary ptz-btn" @onclick="() => MovePTZ(-1, 1, 0)" title="Arriba Izquierda">
+                            ↖
+                        </button>
+                        <button class="btn btn-outline-primary ptz-btn" @onclick="() => MovePTZ(0, 1, 0)" title="Arriba">
+                            ↑
+                        </button>
+                        <button class="btn btn-outline-primary ptz-btn" @onclick="() => MovePTZ(1, 1, 0)" title="Arriba Derecha">
+                            ↗
+                        </button>
+                        
+                        <button class="btn btn-outline-primary ptz-btn" @onclick="() => MovePTZ(-1, 0, 0)" title="Izquierda">
+                            ←
+                        </button>
+                        <button class="btn btn-secondary ptz-btn" @onclick="() => MovePTZ(0, 0, 0)" title="Centro">
+                            ⊙
+                        </button>
+                        <button class="btn btn-outline-primary ptz-btn" @onclick="() => MovePTZ(1, 0, 0)" title="Derecha">
+                            →
+                        </button>
+                        
+                        <button class="btn btn-outline-primary ptz-btn" @onclick="() => MovePTZ(-1, -1, 0)" title="Abajo Izquierda">
+                            ↙
+                        </button>
+                        <button class="btn btn-outline-primary ptz-btn" @onclick="() => MovePTZ(0, -1, 0)" title="Abajo">
+                            ↓
+                        </button>
+                        <button class="btn btn-outline-primary ptz-btn" @onclick="() => MovePTZ(1, -1, 0)" title="Abajo Derecha">
+                            ↘
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="zoom-controls">
+                    <div class="mb-2">
+                        <label class="form-label small">Zoom</label>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary btn-sm" @onclick="() => MovePTZ(0, 0, 1)" title="Zoom In">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                        <button class="btn btn-primary btn-sm" @onclick="() => MovePTZ(0, 0, -1)" title="Zoom Out">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (Camera.PTZCapabilities?.HasPresets == true && Camera.PTZCapabilities.Presets.Any())
+        {
+            <hr>
+            <div class="presets-section">
+                <h6 class="mb-2">
+                    <i class="fas fa-bookmark"></i>
+                    Presets
+                </h6>
+                <div class="d-flex flex-wrap gap-1">
+                    @foreach (var preset in Camera.PTZCapabilities.Presets)
+                    {
+                        <button class="btn btn-outline-info btn-sm" @onclick="() => GoToPreset(preset.Id)">
+                            @preset.Name
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+        
+        <hr>
+        <div class="speed-control">
+            <label class="form-label small">Velocidad: @($"{currentSpeed:P0}")</label>
+            <input type="range" class="form-range" min="0.1" max="1.0" step="0.1" 
+                   @bind="currentSpeed" @bind:event="oninput" />
+        </div>
+    </div>
+</div>
+
+<style>
+    .ptz-controls {
+        display: flex;
+        justify-content: center;
+    }
+    
+    .ptz-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 35px);
+        grid-template-rows: repeat(3, 35px);
+        gap: 3px;
+    }
+    
+    .ptz-btn {
+        width: 35px;
+        height: 35px;
+        font-size: 14px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .zoom-controls {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+    
+    .presets-section {
+        margin-top: 0.5rem;
+    }
+    
+    .speed-control {
+        margin-top: 0.5rem;
+    }
+</style>
+
+@code {
+    [Parameter] public Camera Camera { get; set; } = default!;
+    [Parameter] public EventCallback<PTZCommand> OnCommand { get; set; }
+
+    private float currentSpeed = 0.5f;
+
+    private async Task MovePTZ(float pan, float tilt, float zoom)
+    {
+        var command = new PTZCommand
+        {
+            CameraId = Camera.Id,
+            Pan = new PTZVector { X = pan * currentSpeed },
+            Tilt = new PTZVector { X = tilt * currentSpeed },
+            Zoom = new PTZVector { X = zoom * currentSpeed },
+            Speed = currentSpeed
+        };
+
+        await OnCommand.InvokeAsync(command);
+    }
+
+    private async Task GoToPreset(string presetId)
+    {
+        // TODO: Implementar ir a preset
+        await Task.CompletedTask;
+    }
+}

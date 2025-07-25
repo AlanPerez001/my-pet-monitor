@@ -1,0 +1,309 @@
+@page "/"
+@using MyPetMonitor.Models
+@using MyPetMonitor.Services.Interfaces
+@inject ICameraService CameraService
+@inject IJSRuntime JS
+@implements IDisposable
+
+<PageTitle>Pet Monitor - Dashboard</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="fas fa-video"></i>
+                        Camaras Activas (@cameras.Count)
+                    </h4>
+                    <div>
+                        <button class="btn btn-primary me-2" @onclick="DiscoverCameras" disabled="@isDiscovering">
+                            @if (isDiscovering)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <text>Buscando</text>
+                            }
+                            else
+                            {
+                                <i class="fas fa-search me-2"></i>
+                                <text>Buscar Camaras</text>
+                            }
+                        </button>
+                        <button class="btn btn-success" @onclick="ShowAddCameraModal">
+                            <i class="fas fa-plus me-2"></i>
+                            Agregar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (cameras.Any())
+    {
+        <div class="row">
+            @foreach (var camera in cameras)
+            {
+                <div class="col-xl-4 col-lg-6 col-md-12 mb-4">
+                    <CameraCard Camera="@camera" 
+                               OnStreamToggle="@ToggleStream"
+                               OnPTZCommand="@ExecutePTZCommand"
+                               OnDeleteCamera="@DeleteCamera" />
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-12">
+                <div class="card text-center">
+                    <div class="card-body py-5">
+                        <i class="fas fa-video fa-3x text-muted mb-3"></i>
+                        <h5 class="card-title">No hay camaras configuradas</h5>
+                        <p class="card-text text-muted">
+                            Comienza agregando una camara manualmente o usa la busqueda automatica para descubrir camaras en tu red.
+                        </p>
+                        <button class="btn btn-primary me-2" @onclick="DiscoverCameras" disabled="@isDiscovering">
+                            @if (isDiscovering)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <text>Buscando</text>
+                            }
+                            else
+                            {
+                                <i class="fas fa-search me-2"></i>
+                                <text>Buscar Camaras</text>
+                            }
+                        </button>
+                        <button class="btn btn-outline-primary" @onclick="ShowAddCameraModal">
+                            <i class="fas fa-plus me-2"></i>
+                            Agregar Manualmente
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (showAddModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Agregar Nueva Camara</h5>
+                    <button type="button" class="btn-close" @onclick="HideAddCameraModal"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="@newCamera" OnValidSubmit="@AddCamera">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="text-danger" />
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Nombre</label>
+                            <InputText class="form-control" @bind-Value="newCamera.Name" placeholder="Ej: Camara Jardin" />
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Direccion IP</label>
+                            <InputText class="form-control" @bind-Value="newCamera.IpAddress" placeholder="192.168.1.100" />
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Puerto</label>
+                            <InputNumber class="form-control" @bind-Value="newCamera.Port" />
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Usuario</label>
+                            <InputText class="form-control" @bind-Value="newCamera.Username" placeholder="admin" />
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Contraseña</label>
+                            <InputText type="password" class="form-control" @bind-Value="newCamera.Password" />
+                        </div>
+                        
+                        <div class="d-flex justify-content-end">
+                            <button type="button" class="btn btn-secondary me-2" @onclick="HideAddCameraModal">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-primary" disabled="@isAddingCamera">
+                                @if (isAddingCamera)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                Agregar Camara
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Camera> cameras = new();
+    private Timer? refreshTimer;
+    private bool isDiscovering = false;
+    private bool showAddModal = false;
+    private bool isAddingCamera = false;
+    private Camera newCamera = new() { Port = 80, Username = "admin" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCameras();
+        
+        refreshTimer = new Timer(async _ => 
+        {
+            await InvokeAsync(async () =>
+            {
+                await LoadCameras();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.Zero, TimeSpan.FromSeconds(30));
+    }
+
+    private async Task LoadCameras()
+    {
+        try
+        {
+            cameras = (await CameraService.GetCamerasAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading cameras: {ex.Message}");
+        }
+    }
+
+    private async Task DiscoverCameras()
+    {
+        if (isDiscovering) return;
+        
+        isDiscovering = true;
+        StateHasChanged();
+        
+        try
+        {
+            var discoveredCameras = await CameraService.DiscoverCamerasAsync();
+            
+            foreach (var camera in discoveredCameras)
+            {
+                var existing = cameras.FirstOrDefault(c => c.IpAddress == camera.IpAddress);
+                if (existing == null)
+                {
+                    cameras.Add(camera);
+                }
+            }
+            
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error during discovery: {ex.Message}");
+        }
+        finally
+        {
+            isDiscovering = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ToggleStream(string cameraId)
+    {
+        try
+        {
+            var camera = cameras.FirstOrDefault(c => c.Id == cameraId);
+            if (camera != null)
+            {
+                if (camera.Status == CameraStatus.Streaming)
+                {
+                    await CameraService.StopStreamAsync(cameraId);
+                    camera.Status = CameraStatus.Online;
+                }
+                else
+                {
+                    await CameraService.StartStreamAsync(cameraId);
+                    camera.Status = CameraStatus.Streaming;
+                }
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error toggling stream: {ex.Message}");
+        }
+    }
+
+    private async Task ExecutePTZCommand(PTZCommand command)
+    {
+        try
+        {
+            await Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error executing PTZ command: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteCamera(string cameraId)
+    {
+        try
+        {
+            var success = await CameraService.DeleteCameraAsync(cameraId);
+            if (success)
+            {
+                cameras.RemoveAll(c => c.Id == cameraId);
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting camera: {ex.Message}");
+        }
+    }
+
+    private void ShowAddCameraModal()
+    {
+        newCamera = new Camera { Port = 80, Username = "admin" };
+        showAddModal = true;
+    }
+
+    private void HideAddCameraModal()
+    {
+        showAddModal = false;
+        newCamera = new Camera { Port = 80, Username = "admin" };
+    }
+
+    private async Task AddCamera()
+    {
+        if (isAddingCamera) return;
+        
+        isAddingCamera = true;
+        
+        try
+        {
+            var addedCamera = await CameraService.AddCameraAsync(newCamera);
+            cameras.Add(addedCamera);
+            HideAddCameraModal();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error adding camera: {ex.Message}");
+        }
+        finally
+        {
+            isAddingCamera = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        refreshTimer?.Dispose();
+    }
+}
